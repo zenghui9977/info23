@@ -9,6 +9,7 @@ omegaconf
 visdom
 torchmetrics
 Pillow 8.2.0
+PrettyTable
 ```
 
 
