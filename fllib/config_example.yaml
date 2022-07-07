@@ -1,0 +1,54 @@
+dataset:
+  data_name: "cifar10" # options: 'mnist', 'fmnist', 'kmnist', 'emnist', 'cifar10', 'cifar100'
+  root: '../../Data'
+  download: true
+  simulated: false
+  simulated_root: './simulated/'
+  distribution_type: 'iid' # options: iid, non_iid_class, non_iid_dir
+  class_per_client: 2
+  alpha: 0.9
+  min_size: 1
+  
+
+server: 
+  clients_num: 100
+  rounds: 300
+  clients_per_round: 10
+  random_select: true
+  aggregation_rule: fedavg  # options: fedavg, krum, zeno, median, fedprox, scaffold, feddyn
+  aggregation_detail:
+    type: equal # options: fedavg: equal, weight_by_size; krum: krum, multi-krum
+    f: 2
+    m: 0.3
+    rho: 0.0005
+    b: 1
+    mu: 0.001
+    feddyn_alpha: 0.01
+  loss_fn: "cross_entropy"  # options: cross_entropy, mse; defualt is cross entropy
+  test_interval: 1
+  model_name: vgg9  # options: LeNet5, vgg9
+  records_save_folder: './results/'
+  # base_datasize: 20
+  # data_growth_rate: 20
+  
+
+client:
+  batch_size: 32
+  test_batch_size: 32
+  local_epoch: 1
+  loss_fn: "cross_entropy"  # options: cross_entropy, mse; defualt is cross entropy
+  optimizer:
+    type: "Adam" # options: Adam, SGD
+    lr: 0.01
+    momentum: 0.9
+    weight_decay: 1e-3
+
+  
+log_level: "DEBUG" #options: DEBUG INFO
+seed: 0
+is_visualization: true # if true, start the visdom first
+trial_name: 'test'
+resume: true
+
+
+
