@@ -164,7 +164,7 @@ class OurServer(BaseServer):
                             client_id = client,
                             batch_size = self.train_batchsize,
                             current_round = self.current_round,
-                            base_datasize = self.base_datasize,
+                            base_datasize = self.base_datasize[client],
                             data_growth_rate = self.data_growth_rate[client]
                         )
                     ).state_dict(),
@@ -172,7 +172,7 @@ class OurServer(BaseServer):
                     'size': self.fl_trainset.get_dynamic_datasize(
                         client_id = client, 
                         current_round = self.current_round, 
-                        base_datasize = self.base_datasize, 
+                        base_datasize = self.base_datasize[client], 
                         data_growth_rate = self.data_growth_rate[client]
                     )
                 }
@@ -272,6 +272,7 @@ class OurServer(BaseServer):
         self.computation_capacity = {key: value for key, value in zip(self.clients, self.computation_capacity)}
         self.bandwidth = {key: value for key, value in zip(self.clients, self.bandwidth)}
         self.data_growth_rate = {key: value for key, value in zip(self.clients, self.data_growth_rate)}
+        self.base_datasize = {key: value for key, value in zip(self.clients, self.base_datasize)}
 
 
 
@@ -438,55 +439,76 @@ config = {
 
     'computation_capacity': [2, 2, 2, 2, 2],  # f 
     'bandwidth': [1, 1.2, 1.5, 2.0, 4.0], # b
-    'bandwidth_magnitude': 1000000,  # 1e6
+    'bandwidth_magnitude': 1,  # 1e6
     'base_datasize': 100,
     'data_growth_rate': [100, 150, 200, 250, 120],
-    'training_time_limitation': 10000
+    'training_time_limitation': 60
 }
 
 use_pretrain = False
 model = fasterrcnn_resnet50_fpn(pretrained=use_pretrain, progress=False)
 
 
-trial_name_list = ['ours', 'fixed', 'x_based', 'loss_based', 'loss_and_x_based']
+from args import args_parser, read_data_from_csv
 
-trial_name_index = 0
 
-config['trial_name'] = trial_name_list[trial_name_index]
+csv_params = read_data_from_csv('./params/new_new_new_coco.csv')
 
-if trial_name_index == 0:
-    config['computation_capacity'] = [317.1296, 331.0185, 405.0926,	277.7778, 406.9444]
-    config['bandwidth'] = [1.34, 1.15, 1.8, 0.99, 0.81]
-    config['base_datasize'] = 100
-    config['data_growth_rate'] = [175, 222, 140, 163, 175]
+args = args_parser()
 
-elif trial_name_index == 1:
-    config['computation_capacity'] = [201.7574, 172.1232, 456.707, 283.051, 330.6735]
-    config['bandwidth'] = [0.74915,	0.618317, 0.780165, 0.975501, 0.904441]
-    config['base_datasize'] = 100
-    config['data_growth_rate'] = [175, 222, 140, 163, 175]
+config['trial_name'] = args.exp_name + '_' + args.MC
 
-elif trial_name_index == 2:
-    config['computation_capacity'] = [225.6944, 285.8796, 180.5555, 210.6481, 225.6944]
-    config['bandwidth'] = [0.78, 0.9880, 0.6240, 0.7280, 0.78]
-    config['base_datasize'] = 100
-    config['data_growth_rate'] = [175, 222, 140, 163, 175]
-   
-elif trial_name_index == 3:
-    config['computation_capacity'] = [189.8148, 192.5925, 195.3703,	195.3703, 203.7037]
-    config['bandwidth'] = [0.6150, 0.624, 0.633, 0.633, 0.66]
-    config['base_datasize'] = 100
-    config['data_growth_rate'] = [175, 222, 140, 163, 175]
-   
-elif trial_name_index == 4:
-    config['computation_capacity'] = [207.7546, 239.2361, 187.963, 203.01, 214.6991]
-    config['bandwidth'] = [0.6975, 0.806, 0.6285, 0.6805, 0.72]
-    config['base_datasize'] = 100
-    config['data_growth_rate'] = [175, 222, 140, 163, 175]
+config['computation_capacity'] = csv_params[args.exp_name + '_f_' + args.MC]
+config['bandwidth'] = csv_params[args.exp_name + '_B_' + args.MC]
+config['base_datasize'] = list(map(int, csv_params['base_datasize_' + args.MC]))
+config['data_growth_rate'] = list(map(int, csv_params['data_growth_rate_' + args.MC]))
 
 
 
 init(config=config, custome_server=OurServer, custome_client_class=OurClient, global_model=model, custome_fl_dataset=CocoFL_dataset)
-# run(computation_capacity, bandwidth, training_time_limitation)
+
 run()
+
+
+# trial_name_list = ['our', 'fixed', 'x_based', 'loss_based', 'loss_x_based']
+
+# trial_name_index = 0
+# mc = 1
+
+
+
+# config['trial_name'] = trial_name_list[trial_name_index] + f'MC{mc}'
+
+# if trial_name_index == 0:
+#     config['computation_capacity'] = [250, 464.8, 390.6, 328.1, 339.84]
+#     config['bandwidth'] = [75, 108.75, 121.25, 96.25, 68.75]
+#     config['base_datasize'] = 100
+#     config['data_growth_rate'] = [175, 222, 140, 164, 175]
+
+# elif trial_name_index == 1:
+#     config['computation_capacity'] = [201.7574, 172.1232, 456.707, 283.051, 330.6735]
+#     config['bandwidth'] = [0.74915,	0.618317, 0.780165, 0.975501, 0.904441]
+#     config['base_datasize'] = 100
+#     config['data_growth_rate'] = [175, 222, 140, 163, 175]
+
+# elif trial_name_index == 2:
+#     config['computation_capacity'] = [225.6944, 285.8796, 180.5555, 210.6481, 225.6944]
+#     config['bandwidth'] = [0.78, 0.9880, 0.6240, 0.7280, 0.78]
+#     config['base_datasize'] = 100
+#     config['data_growth_rate'] = [175, 222, 140, 163, 175]
+   
+# elif trial_name_index == 3:
+#     config['computation_capacity'] = [189.8148, 192.5925, 195.3703,	195.3703, 203.7037]
+#     config['bandwidth'] = [0.6150, 0.624, 0.633, 0.633, 0.66]
+#     config['base_datasize'] = 100
+#     config['data_growth_rate'] = [175, 222, 140, 163, 175]
+   
+# elif trial_name_index == 4:
+#     config['computation_capacity'] = [207.7546, 239.2361, 187.963, 203.01, 214.6991]
+#     config['bandwidth'] = [0.6975, 0.806, 0.6285, 0.6805, 0.72]
+#     config['base_datasize'] = 100
+#     config['data_growth_rate'] = [175, 222, 140, 163, 175]
+
+
+
 

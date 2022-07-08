@@ -16,7 +16,7 @@ PrettyTable
 
 ### How to use
 
-* if you have opened the visualization, you should start the visdom first.
+<!-- * if you have opened the visualization, you should start the visdom first.
 
   ```
   call start_visdom.bat
@@ -28,7 +28,14 @@ PrettyTable
 
     ```
     python demo.py
-    ```
+    ``` -->
+
+you can directly run the code with the corrosponding dataset name, for example, the simulation can start with
+
+```
+python mnist.py
+```
+
 
 ### Copyright
 * The code is provided by Hui Zeng from NUDT. If you have any question, please contact zenghui35@outlook.com.

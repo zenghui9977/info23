@@ -302,51 +302,67 @@ config = {
 
     'computation_capacity': [412.415, 501.7007, 471.9388, 446.4286, 578.2313],  # f 
     'bandwidth': [1.0875, 1.1125, 1.375, 1.4, 1.175], # b
-    'bandwidth_magnitude': 100000, #1e5
+    'bandwidth_magnitude': 1, #1e5
     'base_datasize': 10,
     'data_growth_rate': [23, 29, 23, 18, 23],
     'training_time_limitation': 30
 }
 
+from args import args_parser, read_data_from_csv
 
-trial_name_list = ['ours', 'fixed', 'x_based', 'loss_based', 'loss_and_x_based']
 
-trial_name_index = 4
+csv_params = read_data_from_csv('./params/new_new_mnist.csv')
 
-config['trial_name'] = trial_name_list[trial_name_index]
+args = args_parser()
 
-if trial_name_index == 0:
-    config['computation_capacity'] = [19.33195, 23.51722, 22.12213, 20.92634, 27.10459]
-    config['bandwidth'] = [1.0875, 1.1125, 1.375, 1.4, 1.175]
-    config['base_datasize'] = 10
-    config['data_growth_rate'] = [18, 12, 21, 14, 15]
+config['trial_name'] = args.exp_name + '_' + args.MC
 
-elif trial_name_index == 1:
-    config['computation_capacity'] = [24.30296, 9.676883, 6.737472, 31.07206, 24.43898]
-    config['bandwidth'] = [1.146016, 0.80916, 0.87422, 0.66450, 0.86756]
-    config['base_datasize'] = 10
-    config['data_growth_rate'] = [18, 12, 21, 14, 15]
+config['computation_capacity'] = csv_params[args.exp_name + '_f_' + args.MC]
+config['bandwidth'] = csv_params[args.exp_name + '_B_' + args.MC]
+config['base_datasize'] = list(map(int, csv_params['base_datasize_' + args.MC]))
+config['data_growth_rate'] = list(map(int, csv_params['data_growth_rate_' + args.MC]))
 
-elif trial_name_index == 2:
-    config['computation_capacity'] = [14.9473852, 9.964923469, 17.43861607, 11.95790864, 12.45615434]
-    config['bandwidth'] = [0.9750, 0.650, 1.1375, 0.78, 0.8125]
-    config['base_datasize'] = 10
-    config['data_growth_rate'] = [18, 12, 21, 14, 15]
-   
-elif trial_name_index == 3:
-    config['computation_capacity'] = [12.87468167, 14.22991045, 14.22991045, 19.65082911, 20.3284435]
-    config['bandwidth'] = [0.6650, 0.7350, 0.7350, 1.0150, 1.05]
-    config['base_datasize'] = 10
-    config['data_growth_rate'] = [18, 12, 21, 14, 15]
-   
-elif trial_name_index == 4:
-    config['computation_capacity'] = [12.41629516, 11.10092437, 14.09040213, 14.60857742, 15.14668348]
-    config['bandwidth'] = [0.76375, 0.6550, 0.87062, 0.8525, 0.884375]
-    config['base_datasize'] = 10
-    config['data_growth_rate'] = [18, 12, 21, 14, 15]
-   
+
+
 
 init(config=config, custome_server=OurMNISTServer, custome_client_class=OurMNISTClient)
 
 run()
 
+
+# trial_name_list = ['ours', 'fixed', 'x_based', 'loss_based', 'loss_and_x_based']
+
+# trial_name_index = 4
+
+# config['trial_name'] = trial_name_list[trial_name_index]
+
+# if trial_name_index == 0:
+#     config['computation_capacity'] = [19.33195, 23.51722, 22.12213, 20.92634, 27.10459]
+#     config['bandwidth'] = [1.0875, 1.1125, 1.375, 1.4, 1.175]
+#     config['base_datasize'] = 10
+#     config['data_growth_rate'] = [18, 12, 21, 14, 15]
+
+# elif trial_name_index == 1:
+#     config['computation_capacity'] = [24.30296, 9.676883, 6.737472, 31.07206, 24.43898]
+#     config['bandwidth'] = [1.146016, 0.80916, 0.87422, 0.66450, 0.86756]
+#     config['base_datasize'] = 10
+#     config['data_growth_rate'] = [18, 12, 21, 14, 15]
+
+# elif trial_name_index == 2:
+#     config['computation_capacity'] = [14.9473852, 9.964923469, 17.43861607, 11.95790864, 12.45615434]
+#     config['bandwidth'] = [0.9750, 0.650, 1.1375, 0.78, 0.8125]
+#     config['base_datasize'] = 10
+#     config['data_growth_rate'] = [18, 12, 21, 14, 15]
+   
+# elif trial_name_index == 3:
+#     config['computation_capacity'] = [12.87468167, 14.22991045, 14.22991045, 19.65082911, 20.3284435]
+#     config['bandwidth'] = [0.6650, 0.7350, 0.7350, 1.0150, 1.05]
+#     config['base_datasize'] = 10
+#     config['data_growth_rate'] = [18, 12, 21, 14, 15]
+   
+# elif trial_name_index == 4:
+#     config['computation_capacity'] = [12.41629516, 11.10092437, 14.09040213, 14.60857742, 15.14668348]
+#     config['bandwidth'] = [0.76375, 0.6550, 0.87062, 0.8525, 0.884375]
+#     config['base_datasize'] = 10
+#     config['data_growth_rate'] = [18, 12, 21, 14, 15]
+   
