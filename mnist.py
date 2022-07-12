@@ -73,7 +73,7 @@ class OurMNISTServer(BaseServer):
         self.computation_capacity = {key: value for key, value in zip(self.clients, self.computation_capacity)}
         self.bandwidth = {key: value for key, value in zip(self.clients, self.bandwidth)}
         self.data_growth_rate = {key: value for key, value in zip(self.clients, self.data_growth_rate)}
-
+        self.base_datasize = {key: value for key, value in zip(self.clients, self.base_datasize)}
 
     def multiple_steps(self):
         for _ in range(self.config.rounds):
@@ -144,7 +144,7 @@ class OurMNISTServer(BaseServer):
                             client_id = client,
                             batch_size = self.train_batchsize,
                             current_round = self.current_round,
-                            base_datasize = self.base_datasize,
+                            base_datasize = self.base_datasize[client],
                             data_growth_rate = self.data_growth_rate[client]
                         )
                     ).state_dict(),
@@ -152,19 +152,19 @@ class OurMNISTServer(BaseServer):
                     'size': self.fl_trainset.get_dynamic_datasize(
                         client_id = client, 
                         current_round = self.current_round, 
-                        base_datasize = self.base_datasize, 
+                        base_datasize = self.base_datasize[client], 
                         data_growth_rate = self.data_growth_rate[client]
                     )
                 }
-                training_time = time.time() - start_time
+                training_time= time.time() - start_time
 
-                training_time = self.train_batchsize * training_time / self.computation_capacity[client]
+                training_time_trans = self.train_batchsize * training_time / self.computation_capacity[client]
 
                 trans_time = 2 * self.model_size / self.bandwidth[client]
                 
-                clients_trainig_time[client] = training_time + trans_time
+                clients_trainig_time[client] = training_time_trans + trans_time
 
-                logger.info('Client {}, Training time {:.4f}s, Comminication time {:.4f}, Total {:.4f}'.format(client, training_time, trans_time, clients_trainig_time[client]))
+                logger.info('Client: {}, Train {:.2f}s (Actual {:.2f}s), Comminication {:.2f}s, Total {:.4f}s'.format(client, training_time_trans, training_time, trans_time, clients_trainig_time[client]))
 
         else:
             logger.warning('No clients in this round')

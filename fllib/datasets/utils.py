@@ -9,9 +9,11 @@ import json
 import time
 import shutil
 import os
+import csv
 from collections import defaultdict
 from pathlib import Path
-
+from torchvision.datasets import GTSRB
+from typing import Optional, Callable, Tuple, Any
 
 class ImageDataset(Dataset):
     def __init__(self, images, labels, transform_x=None, transform_y=None):
@@ -189,6 +191,23 @@ class MyCocoTransform(object):
 
         return image, target
               
+class MyGTSRBTargetTransform(object):
+    def __call__(self, target):
+        
+        boxes = []
+        labels = []
+        targets = {}
+
+        for tg in target:
+            boxes.append([tg['Roi.X1'], tg['Roi.Y1'], tg['Roi.X2'], tg['Roi.Y2']])
+            labels.append(tg['ClassId'])
+
+        targets['boxes'] = torch.tensor(boxes, dtype=torch.float)
+        targets['labels'] = torch.tensor(labels, dtype=torch.int64)
+
+        return targets
+
+
 
 
 class CocoDetection(torchvision.datasets.CocoDetection):
@@ -329,3 +348,63 @@ def coco_remove_images_without_annotations(dataset, cat_list=None):
 
     dataset = torch.utils.data.Subset(dataset, ids)
     return dataset
+
+
+
+class MyGTSRB(GTSRB):
+    def __init__(self, root: str, split: str = "train", transform: Optional[Callable] = None, target_transform: Optional[Callable] = None, download: bool = False) -> None:
+        super().__init__(root, split, transform, target_transform, download)
+
+        if self._split == 'train':
+            samples = self.read_dataset_from_csv()
+        else:
+            samples = self.read_dataset_from_csv()
+
+        self._samples = samples
+    
+    def read_dataset_from_csv(self):
+        instances = []
+        directory = os.path.expanduser(self._target_folder)
+
+        if self._split == 'train':
+  
+            classes = sorted(entry.name for entry in os.scandir(directory) if entry.is_dir())
+
+
+            for class_dir in classes:
+                target_dir = os.path.join(directory, class_dir)
+                class_csv_file_name = os.path.join(target_dir, f'GT-{class_dir}.csv')
+                
+                with open(class_csv_file_name, 'r', encoding='utf-8') as f:
+                    reader = csv.DictReader(f, delimiter=';', skipinitialspace=True)
+                    for row in reader:
+                        path = os.path.join(target_dir, row['Filename'])
+                        item = path, [{k:float(v) for k, v in row.items() if k != 'Filename'}]                   
+                        instances.append(item)
+        else:
+            test_csv_file = os.path.join(self._base_folder, 'GT-final_test.csv')
+
+            with open(test_csv_file, 'r', encoding='utf-8') as f:
+                reader = csv.DictReader(f, delimiter=';', skipinitialspace=True)
+                for row in reader:
+                    path = os.path.join(directory, row['Filename'])
+                    item = path, [{k:float(v) for k, v in row.items() if k != 'Filename'}]  
+                    instances.append(item)
+
+        return instances
+
+    def __getitem__(self, index: int) -> Tuple[Any, Any]:
+
+        path, targets = self._samples[index]
+
+        sample = Image.open(path).convert('RGB')
+
+        if self.transform is not None:
+            sample = self.transform(sample)
+
+        if self.target_transform is not None:
+            targets = self.target_transform(targets)
+
+        return sample, targets
+
+

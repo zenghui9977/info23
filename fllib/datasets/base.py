@@ -8,10 +8,10 @@ import torchvision.transforms as transforms
 
 from torch.utils.data import DataLoader
 from fllib.datasets.simulation import data_distribution_simulation
-from fllib.datasets.utils import BuildMiniCOCO, MyCocoTransform, MyCompose, MyToTensor, TransformDataset, ConvertCocoPolysToMask, CocoDetection, coco_remove_images_without_annotations
+from fllib.datasets.utils import BuildMiniCOCO, MyCocoTransform, MyCompose, MyGTSRB, MyGTSRBTargetTransform, MyToTensor, TransformDataset, ConvertCocoPolysToMask, CocoDetection, coco_remove_images_without_annotations
 
 
-support_dataset = ['mnist', 'fmnist', 'kmnist', 'emnist', 'cifar10', 'cifar100', 'coco2017', 'mini_coco2017']
+support_dataset = ['mnist', 'fmnist', 'kmnist', 'emnist', 'cifar10', 'cifar100', 'coco2017', 'mini_coco2017', 'gtsrb']
 
 logger = logging.getLogger(__name__)
 
@@ -138,12 +138,17 @@ class BaseDataset(object):
 
             self.type = 'mini_coco2017'
         
-        elif self.type == 'kitti':
+        # elif self.type == 'kitti':
 
-            self.trainset = torchvision.datasets.Kitti(root=self.root, train=True, download=self.download)
-            self.testset = torchvision.datasets .Kitti(root=self.root, train=False, download=self.download)
+        #     self.trainset = torchvision.datasets.Kitti(root=self.root, train=True, download=self.download)
+        #     self.testset = torchvision.datasets .Kitti(root=self.root, train=False, download=self.download)
 
+        elif self.type == 'gtsrb':
 
+            simple_transform = torchvision.transforms.Compose([transforms.ToTensor(),])
+            simple_target_transform = torchvision.transforms.Compose([ MyGTSRBTargetTransform(), ])
+            self.trainset = MyGTSRB(root=self.root, split='train', download=self.download, transform=simple_transform, target_transform=simple_target_transform)
+            self.testset = MyGTSRB(root=self.root, split='test', download=self.download, transform=simple_transform, target_transform=simple_target_transform)
 
         else:
             raise ValueError(f'Dataset name is not correct, the options are listed as follows: {support_dataset}')

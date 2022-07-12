@@ -134,7 +134,8 @@ class BaseFL(object):
         if self.config.dataset.data_name in ['coco2017', 'mini_coco2017']:
             self.testset_loader = self.fl_dataset.get_coco_testset(batch_size=self.config.client.test_batch_size)
         
-        
+        elif self.config.dataset.data_name == 'gtsrb':
+            self.testset_loader = self.fl_dataset.get_gtsrb_testset(batch_size=self.config.client.test_batch_size)
         
         else:
             self.model_channels = trainset[0][0].shape[0]

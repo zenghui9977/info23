@@ -1,72 +1,60 @@
-import os
-import random
-import time
-import gc
-import numpy as np
-import torch
 import csv
+import os
+import time
+import torch
+import gc
+import random    
+import numpy as np
+from torchmetrics.detection.mean_ap import MeanAveragePrecision
 from torch.utils.data import Subset, RandomSampler, SequentialSampler, BatchSampler, DataLoader
+from torchvision.models.detection import fasterrcnn_resnet50_fpn, fasterrcnn_mobilenet_v3_large_320_fpn, fasterrcnn_mobilenet_v3_large_fpn
 
+from fllib.base import BaseFL
 from fllib.base import logger, BaseFL, init_config, init_logger, set_all_random_seed
-from fllib.server.base import BaseServer
 from fllib.client.base import BaseClient
-
-from fllib.datasets.base import FederatedDataset, max_limit_list, robust_cycle_list
+from fllib.datasets.base import FederatedDataset, max_limit_list
+from fllib.server.base import BaseServer
 from fllib.datasets.simulation import size_of_division
 from fllib.datasets.utils import collate_fn
 
-from torchmetrics.detection.mean_ap import MeanAveragePrecision
 
 from collections import defaultdict
 
-from torchvision.models.detection import fasterrcnn_resnet50_fpn, fasterrcnn_mobilenet_v3_large_320_fpn, fasterrcnn_mobilenet_v3_large_fpn
 
 from prettytable import PrettyTable
-
-
 
 GLOBAL_ROUND = 'Round'
 GLOBAL_ACC = 'Accuracy'
 GLOBAL_LOSS = 'Loss'
 GLOBAL_TIME = 'Time'
 
-
 class OurClient(BaseClient):
     def __init__(self, config, device):
         super(OurClient, self).__init__(config, device)
-
+    
     def train(self, client_id, local_trainset):
 
-        # start_time = time.time()
         _, optimizer = self.train_preparation()
-
         self.local_model.train()
 
         for e in range(self.config.local_epoch):
             batch_loss = []
-
             for imgs, labels in local_trainset:
-
                 imgs = list(img.to(self.device) for img in imgs)
                 labels = [{k: v.to(self.device) for k, v in t.items()} for t in labels]
 
-                
                 loss_dict = self.local_model(imgs, labels)
 
                 losses = sum(loss for loss in loss_dict.values())
-                # print(losses)
 
                 optimizer.zero_grad()
                 losses.backward()
                 optimizer.step()
 
-                batch_loss.append(losses.item())
+                batch_loss.append(losses.item())                
             
             current_epoch_loss = np.mean(batch_loss)
             logger.debug('Client: {}, local epoch: {}, loss: {:.4f}'.format(client_id, e, current_epoch_loss))
-        # train_time = time.time() - start_time
-        # logger.debug('Client: {}, training {:.4f}s'.format(client_id, train_time))
-
 
 
 class OurServer(BaseServer):
@@ -206,7 +194,6 @@ class OurServer(BaseServer):
                 _ = mAP_metrics.update(preds, labels)
 
             test_result_dict = mAP_metrics.compute()
-                
             logger.info('Test using {:.2f}s'.format(time.time() - start_time))
             return test_result_dict
 
@@ -273,19 +260,7 @@ class OurServer(BaseServer):
         self.base_datasize = {key: value for key, value in zip(self.clients, self.base_datasize)}
 
 
-
-
-
-class OurFL(BaseFL):
-    def __init__(self):
-        super(OurFL, self).__init__()
-
-    def run(self):
-        
-        self.global_model = self.server.multiple_steps()
-
-
-class CocoFL_dataset(FederatedDataset):
+class GTSRBFL_dataset(FederatedDataset):
     def __init__(self, data_name, trainset, testset, simulated, simulated_root, distribution_type, clients_id, class_per_client=2, alpha=0.9, min_size=1):
         self.trainset = trainset
         self.testset = testset
@@ -319,20 +294,17 @@ class CocoFL_dataset(FederatedDataset):
             if not os.path.exists(self.simulated_root):
                 os.makedirs(self.simulated_root)
             logger.info(f'Initialize the file {self.store_file_name}.')
-            self.clients_data = self.coco_data_distribution_simulation()
+            self.clients_data = self.gtsrb_data_distribution_simulation()
             
             
             torch.save(self.clients_data, os.path.join(self.simulated_root, self.store_file_name))
 
-
-    def coco_data_distribution_simulation(self):
+    def gtsrb_data_distribution_simulation(self):
         clients_data = defaultdict(list)
         data_num = len(self.trainset)
 
         datasize_per_client = size_of_division(self.clients_num, data_num)
         
-
-
         temp = set(range(data_num))
 
         for c in range(self.clients_num):
@@ -346,8 +318,8 @@ class CocoFL_dataset(FederatedDataset):
 
             random.shuffle(clients_data[cur_client_id])
 
-        return clients_data
-
+        return clients_data        
+    
     def get_dynamic_dataloader(self, client_id, batch_size, current_round, base_datasize, data_growth_rate, istrain=True, drop_last=False):
         if istrain:
 
@@ -367,20 +339,29 @@ class CocoFL_dataset(FederatedDataset):
 
                 return DataLoader(sub_dataset, batch_sampler=batch_sampler, collate_fn=collate_fn)
             else:
-                raise ValueError('The client id is not existed.') 
+                raise ValueError('The client id is not existed.')     
 
-
-    def get_coco_testset(self, batch_size):
+    def get_gtsrb_testset(self, batch_size):
         test_sampler = SequentialSampler(self.testset)
 
         return DataLoader(self.testset, batch_size=batch_size, sampler=test_sampler, collate_fn=collate_fn)
 
+        
 
 
 
 
+class OurGTSRBFL(BaseFL):
+    def __init__(self):
+        super(OurGTSRBFL, self).__init__()
 
-global_fl = OurFL()
+    def run(self):
+        
+        self.global_model = self.server.multiple_steps()
+
+
+
+global_fl = OurGTSRBFL()
 
 def init(config=None, custome_client_class=None, custome_server=None, global_model=None, custome_fl_dataset=None):
 
@@ -395,21 +376,20 @@ def init(config=None, custome_client_class=None, custome_server=None, global_mod
     global_fl.init_fl(config, custome_server=custome_server, custome_client_class=custome_client_class, global_model=global_model, fl_dataset=custome_fl_dataset)
 
 
-
-
 def run():
     global global_fl
 
     global_fl.run()
 
+
+
+#  Our        
 config = {
     'dataset': {
-        'data_name': 'mini_coco2017',
+        'data_name': 'gtsrb',
         'download': False,
         'distribution_type': 'iid',
-        'alpha': 0.5,
-        'simulated': True,
-        
+        'simulated': True,    
     },
     'server': {
         'clients_num': 5,
@@ -424,14 +404,14 @@ config = {
     },
     'client': {
         'local_epoch': 1,
-        'test_batch_size': 6,
-        'batch_size': 2,
+        'test_batch_size': 32,
+        'batch_size': 8,
         'optimizer':{
             'type': 'SGD',
             'lr': 0.001      
         }
     },
-    'trial_name': 'ours',
+    'trial_name': 'our', #
     'resume': False,
     'is_visualization': False,
 
@@ -450,8 +430,7 @@ model = fasterrcnn_mobilenet_v3_large_fpn(pretrained=use_pretrain, progress=Fals
 
 from args import args_parser, read_data_from_csv
 
-
-csv_params = read_data_from_csv('./params/new_new_new_coco.csv')
+csv_params = read_data_from_csv('./params/gtsrb.csv')
 
 args = args_parser()
 
@@ -464,50 +443,6 @@ config['data_growth_rate'] = list(map(int, csv_params['data_growth_rate_' + args
 
 
 
-init(config=config, custome_server=OurServer, custome_client_class=OurClient, global_model=model, custome_fl_dataset=CocoFL_dataset)
+init(config=config, custome_server=OurServer, custome_client_class=OurClient, global_model=model, custome_fl_dataset=GTSRBFL_dataset)
 
 run()
-
-
-# trial_name_list = ['our', 'fixed', 'x_based', 'loss_based', 'loss_x_based']
-
-# trial_name_index = 0
-# mc = 1
-
-
-
-# config['trial_name'] = trial_name_list[trial_name_index] + f'MC{mc}'
-
-# if trial_name_index == 0:
-#     config['computation_capacity'] = [250, 464.8, 390.6, 328.1, 339.84]
-#     config['bandwidth'] = [75, 108.75, 121.25, 96.25, 68.75]
-#     config['base_datasize'] = 100
-#     config['data_growth_rate'] = [175, 222, 140, 164, 175]
-
-# elif trial_name_index == 1:
-#     config['computation_capacity'] = [201.7574, 172.1232, 456.707, 283.051, 330.6735]
-#     config['bandwidth'] = [0.74915,	0.618317, 0.780165, 0.975501, 0.904441]
-#     config['base_datasize'] = 100
-#     config['data_growth_rate'] = [175, 222, 140, 163, 175]
-
-# elif trial_name_index == 2:
-#     config['computation_capacity'] = [225.6944, 285.8796, 180.5555, 210.6481, 225.6944]
-#     config['bandwidth'] = [0.78, 0.9880, 0.6240, 0.7280, 0.78]
-#     config['base_datasize'] = 100
-#     config['data_growth_rate'] = [175, 222, 140, 163, 175]
-   
-# elif trial_name_index == 3:
-#     config['computation_capacity'] = [189.8148, 192.5925, 195.3703,	195.3703, 203.7037]
-#     config['bandwidth'] = [0.6150, 0.624, 0.633, 0.633, 0.66]
-#     config['base_datasize'] = 100
-#     config['data_growth_rate'] = [175, 222, 140, 163, 175]
-   
-# elif trial_name_index == 4:
-#     config['computation_capacity'] = [207.7546, 239.2361, 187.963, 203.01, 214.6991]
-#     config['bandwidth'] = [0.6975, 0.806, 0.6285, 0.6805, 0.72]
-#     config['base_datasize'] = 100
-#     config['data_growth_rate'] = [175, 222, 140, 163, 175]
-
-
-
-
